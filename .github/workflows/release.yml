@@ -54,16 +54,18 @@ jobs:
           p2="${p2:-0}"
           p3="${p3:-0}"
           version="${p1}.${p2}.${p3}"
+          tag="v${version}"
 
-          echo "Derived version '$raw' normalized to '$version'"
+          echo "Derived version '$raw' normalized to '$version' -> tag '$tag'"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Check if tag exists
         id: check_tag
         shell: bash
         run: |
-          version="${{ steps.meta.outputs.version }}"
-          if git ls-remote --tags origin | grep -q "refs/tags/${version}$"; then
+          tag="${{ steps.meta.outputs.tag }}"
+          if git ls-remote --tags origin | grep -q "refs/tags/${tag}$"; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -73,8 +75,8 @@ jobs:
         if: steps.check_tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.meta.outputs.version }}
-          name: Release ${{ steps.meta.outputs.version }}
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Release ${{ steps.meta.outputs.tag }}
           draft: false
           prerelease: false
           generate_release_notes: true
