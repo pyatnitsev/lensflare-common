@@ -75,6 +75,7 @@ jobs:
         if: steps.check_tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
+          target_commitish: ${{ github.sha }}
           tag_name: ${{ steps.meta.outputs.tag }}
           name: Release ${{ steps.meta.outputs.tag }}
           draft: false
