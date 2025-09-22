@@ -29,11 +29,33 @@ jobs:
         shell: bash
         run: |
           ref="${GITHUB_REF_NAME}"
-          version="${ref#release/}"
-          if [[ -z "$version" || "$version" == "$ref" ]]; then
-            echo "Could not derive version from branch name '$ref' (expected release/x.y.z)" >&2
+          raw="${ref#release/}"
+          if [[ -z "$raw" || "$raw" == "$ref" ]]; then
+            echo "Could not derive version from branch name '$ref' (expected 'release/<version>')" >&2
             exit 1
           fi
+          # strip optional leading v/V
+          case "$raw" in
+            v*) raw="${raw#v}" ;;
+            V*) raw="${raw#V}" ;;
+          esac
+
+          # Split into parts and validate numeric segments
+          IFS='.' read -r p1 p2 p3 extra <<< "$raw"
+          for seg in "$p1" "$p2" "$p3"; do
+            if [[ -n "$seg" && ! "$seg" =~ ^[0-9]+$ ]]; then
+              echo "Invalid version segment '$seg' in '$raw' (only digits and dots are allowed)" >&2
+              exit 1
+            fi
+          done
+
+          # Default missing parts to 0 to get a.b.c
+          p1="${p1:-0}"
+          p2="${p2:-0}"
+          p3="${p3:-0}"
+          version="${p1}.${p2}.${p3}"
+
+          echo "Derived version '$raw' normalized to '$version'"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Check if tag exists
@@ -41,7 +63,7 @@ jobs:
         shell: bash
         run: |
           version="${{ steps.meta.outputs.version }}"
-          if git ls-remote --tags origin | grep -q "refs/tags/v${version}$"; then
+          if git ls-remote --tags origin | grep -q "refs/tags/${version}$"; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -51,7 +73,7 @@ jobs:
         if: steps.check_tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.meta.outputs.version }}
+          tag_name: ${{ steps.meta.outputs.version }}
           name: Release ${{ steps.meta.outputs.version }}
           draft: false
           prerelease: false
