@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           version="${{ steps.meta.outputs.version }}"
-          if git ls-remote --tags origin | grep -q "refs/tags/${version}$"; then
+          if git ls-remote --tags origin | grep -q "refs/tags/v${version}$"; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
