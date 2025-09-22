@@ -1,0 +1,60 @@
+name: Test and Release on release/*
+
+on:
+  push:
+    branches:
+      - 'release/*'
+
+permissions:
+  contents: write
+
+jobs:
+  test-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Derive version from branch name
+        id: meta
+        shell: bash
+        run: |
+          ref="${GITHUB_REF_NAME}"
+          version="${ref#release/}"
+          if [[ -z "$version" || "$version" == "$ref" ]]; then
+            echo "Could not derive version from branch name '$ref' (expected release/x.y.z)" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag exists
+        id: check_tag
+        shell: bash
+        run: |
+          version="${{ steps.meta.outputs.version }}"
+          if git ls-remote --tags origin | grep -q "refs/tags/${version}$"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.version }}
+          name: Release ${{ steps.meta.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
